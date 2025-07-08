@@ -1,25 +1,24 @@
 import { Controller, Get, Post, Query, Res, Body } from '@nestjs/common';
 import { Response } from 'express';
-import { WhatsAppWebhookPayload } from './whatsapp-webhook.dto'; // o el path correcto
+import { WhatsAppWebhookPayload } from './whatsapp-webhook.dto';
 
 @Controller('webhook')
 export class WebhookController {
+  private readonly VERIFY_TOKEN = 'mi_token_secreto_123';
+
   @Get()
   verifyWebhook(
     @Query('hub.mode') mode: string,
-    @Query('hub.verify_token') verifyToken: string,
+    @Query('hub.verify_token') token: string,
     @Query('hub.challenge') challenge: string,
     @Res() res: Response,
   ) {
-    const MY_VERIFY_TOKEN = 'mi_token_secreto_123';
-
-    if (mode && verifyToken) {
-      if (mode === 'subscribe' && verifyToken === MY_VERIFY_TOKEN) {
+    if (mode && token) {
+      if (mode === 'subscribe' && token === this.VERIFY_TOKEN) {
         console.log('Webhook verificado');
         return res.status(200).send(challenge);
-      } else {
-        return res.sendStatus(403);
       }
+      return res.sendStatus(403);
     }
     return res.sendStatus(400);
   }
@@ -29,10 +28,8 @@ export class WebhookController {
     try {
       console.log('Webhook payload:', JSON.stringify(body, null, 2));
 
-      const changes = body.entry?.[0]?.changes?.[0];
-      const messages = changes?.value?.messages;
-
-      if (messages && messages.length > 0) {
+      const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
+      if (messages?.length) {
         for (const message of messages) {
           const from = message.from;
           const msgBody = message.text?.body || '';
