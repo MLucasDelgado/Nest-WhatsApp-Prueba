@@ -1,37 +1,25 @@
-import {
-  Controller,
-  Post,
-  Body,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
-import { WhatsappService } from './whatsapp.service';
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 
-@Controller('whatsapp')
-export class WhatsappController {
-  constructor(private readonly whatsappService: WhatsappService) {}
+@Controller('webhook')
+export class WebhookController {
+  @Get()
+  verifyWebhook(
+    @Query('hub.mode') mode: string,
+    @Query('hub.verify_token') verifyToken: string,
+    @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
+  ) {
+    const MY_VERIFY_TOKEN = 'mi_token_secreto_123'; // debe coincidir con Facebook
 
-  @Post('send')
-  async sendMessage(@Body('to') to: string): Promise<{ message: string; data: any }> {
-    if (!to) {
-      throw new HttpException(
-        'Número destino (to) es requerido',
-        HttpStatus.BAD_REQUEST,
-      );
+    if (mode && verifyToken) {
+      if (mode === 'subscribe' && verifyToken === MY_VERIFY_TOKEN) {
+        console.log('Webhook verificado');
+        return res.status(200).send(challenge);
+      } else {
+        return res.sendStatus(403);
+      }
     }
-
-    try {
-      const result = await this.whatsappService.sendMessage(to);
-      return {
-        message: 'Mensaje enviado correctamente',
-        data: result,
-      };
-    } catch (error: unknown) {
-      // Opcional: podrías loguear el error si querés
-      throw new HttpException(
-        'Error al enviar mensaje',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    return res.sendStatus(400);
   }
 }
