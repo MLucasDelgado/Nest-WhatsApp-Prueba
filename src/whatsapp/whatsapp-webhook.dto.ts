@@ -1,16 +1,28 @@
 export interface WhatsAppWebhookPayload {
   object: string;
-  entry: {
+  entry: Array<{
     id: string;
-    changes: {
+    changes: Array<{
       value: {
-        messages?: {
+        messaging_product: string;
+        metadata: {
+          display_phone_number: string;
+          phone_number_id: string;
+        };
+        contacts: Array<{
+          profile: { name: string };
+          wa_id: string;
+        }>;
+        messages: Array<{
           from: string;
-          text?: {
-            body: string;
-          };
-        }[];
+          id: string;
+          timestamp: string;  // es string en la API
+          text?: { body: string };
+          type: string;
+        }>;
       };
-    }[];
-  }[];
+      field: string;
+    }>;
+  }>;
 }
+
