@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, Query, Get } from '@nestjs/common';
 import { Response } from 'express';
 import { ConversationsService } from 'src/controlador-conversaciones/conversations/conversations.service';
 import { WhatsAppWebhookPayload } from './whatsapp-webhook.dto';
@@ -6,6 +6,26 @@ import { WhatsAppWebhookPayload } from './whatsapp-webhook.dto';
 @Controller('webhook')
 export class WebhookController {
   constructor(private readonly conversationsService: ConversationsService) {}
+
+  @Get()
+  verifyWebhook(
+    @Query('hub.mode') mode: string,
+    @Query('hub.verify_token') token: string,
+    @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
+  ) {
+    const VERIFY_TOKEN = 'mi_token_123';  // El token que configuraste en la plataforma
+
+    if (mode && token) {
+      if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('Webhook verificado!');
+        return res.status(200).send(challenge);  // Respondés con el challenge para validar
+      } else {
+        return res.sendStatus(403);
+      }
+    }
+    return res.sendStatus(400);
+  }
 
   @Post()
   async receiveMessage(
