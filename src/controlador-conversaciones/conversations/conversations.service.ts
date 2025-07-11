@@ -5,7 +5,6 @@ dotenv.config();
 
 @Injectable()
 export class ConversationsService {
-  // Pool es un conjunto de conexiones a PostgreSQL para ejecutar consultas
   private pool: Pool;
 
   constructor() {
@@ -16,11 +15,11 @@ export class ConversationsService {
     }
 
     this.pool = new Pool({
-      connectionString: dbUrl, // connectionString es la dirección (usuario, contraseña, host, puerto, base) para conectarse a la base de datos
+      connectionString: dbUrl,
     });
   }
 
-  async upsertConversation(phone: string, name: string | null, message: string, date: Date) { // guarda la conversacion
+  async upsertConversation(phone: string, name: string | null, message: string, date: Date): Promise<string> {
     const client = await this.pool.connect();
     try {
       console.log('Intentando upsertConversation con:', { phone, name, message, date });
@@ -28,7 +27,7 @@ export class ConversationsService {
 
       const res = await client.query('SELECT id FROM conversations WHERE phone = $1', [phone]);
 
-      let conversationId: number;
+      let conversationId: string;
       if (res.rows.length > 0) {
         conversationId = res.rows[0].id;
         await client.query(
@@ -42,6 +41,7 @@ export class ConversationsService {
           [phone, name, message, date],
         );
         conversationId = insertRes.rows[0].id;
+        console.log(`Insertó nueva conversación con id ${conversationId}`);
       }
 
       await client.query('COMMIT');
@@ -55,10 +55,10 @@ export class ConversationsService {
     }
   }
 
-  async insertMessage(conversationId: number, from: string, message: string, date: Date) {
+  async insertMessage(conversationId: string, from: string, message: string, date: Date) {
     try {
       await this.pool.query(
-        'INSERT INTO messages (conversation_id, from_number, message, timestamp) VALUES ($1, $2, $3, $4)',
+        'INSERT INTO messages (conversation_id, phone, message, timestamp) VALUES ($1, $2, $3, $4)',
         [conversationId, from, message, date],
       );
     } catch (error) {
@@ -69,7 +69,7 @@ export class ConversationsService {
 
   async getRecentConversations() {
     const result = await this.pool.query(`
-      SELECT phone, name, last_message, last_message_date
+      SELECT id, phone, name, last_message, last_message_date
       FROM conversations
       ORDER BY last_message_date DESC
       LIMIT 50
@@ -77,10 +77,35 @@ export class ConversationsService {
     return result.rows;
   }
 
-  async getMessageById(conversationId: number) {
-    const result = this.pool.query(
-      `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY timestamp ASC`, [conversationId]
+  async getMessageById(conversationId: string) {
+    const result = await this.pool.query(
+      ` SELECT messages.*, conversations.name
+        FROM messages
+        JOIN conversations ON messages.conversation_id = conversations.id
+        WHERE messages.conversation_id = $1
+        ORDER BY messages.timestamp ASC
+      `,
+      [conversationId],
     );
-    return result;
+    return result.rows;
+  }
+
+  async searchMessages(contentMessage: string) {
+    const result = await this.pool.query(
+      ` SELECT DISTINCT ON (conversations.id)
+          conversations.id AS conversation_id,
+          conversations.name,
+          conversations.phone,
+          conversations.last_message,
+          conversations.last_message_date
+        FROM conversations
+        JOIN messages ON messages.conversation_id = conversations.id
+        WHERE messages.message ILIKE '%' || $1 || '%'
+        ORDER BY conversations.id, messages.timestamp DESC
+      `,
+      [contentMessage],
+    );
+    return result.rows;
   }
 }
+
