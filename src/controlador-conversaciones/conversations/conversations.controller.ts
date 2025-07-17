@@ -7,11 +7,11 @@ function isValidUUID(uuid: string): boolean {
   return uuidRegex.test(uuid);
 }
 
-@Controller('conversations')
+@Controller()
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) { }
 
-  @Get()
+  @Get('/conversations')
   async getConversations(@Res() res: Response) {
     try {
       const conversations = await this.conversationsService.getRecentConversations();
